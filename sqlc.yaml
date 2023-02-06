@@ -1,0 +1,10 @@
+version: "1"
+project:
+  id: ""
+packages:
+  - path: "postgres"
+    name: "postgres"
+    engine: "postgresql"
+    schema: "service/migrations/"
+    queries: "postgres/query.sql"
+    emit_interface: true
