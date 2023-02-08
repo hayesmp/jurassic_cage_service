@@ -22,18 +22,70 @@ func (q *Queries) DeleteDinosaur(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCage = `-- name: GetCage :one
-SELECT id, name, status FROM cage WHERE id = $1
+SELECT id, name, status, predominate_eating_habit FROM cage WHERE id = $1
 `
 
 func (q *Queries) GetCage(ctx context.Context, id uuid.UUID) (Cage, error) {
 	row := q.db.QueryRowContext(ctx, getCage, id)
 	var i Cage
-	err := row.Scan(&i.ID, &i.Name, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.PredominateEatingHabit,
+	)
 	return i, err
 }
 
+const getCageAndDinosaurs = `-- name: GetCageAndDinosaurs :one
+SELECT cage.id, cage.name, cage.status, cage.predominate_eating_habit, dinosaur.id, dinosaur.name, dinosaur.eating_habit, dinosaur.species, dinosaur.cage_id
+FROM cage
+    LEFT JOIN dinosaur ON cage.id = dinosaur.cage_id
+    WHERE cage.id = $1
+`
+
+type GetCageAndDinosaursRow struct {
+	ID                     uuid.UUID
+	Name                   sql.NullString
+	Status                 sql.NullInt32
+	PredominateEatingHabit sql.NullInt32
+	ID_2                   uuid.NullUUID
+	Name_2                 sql.NullString
+	EatingHabit            sql.NullInt32
+	Species                sql.NullInt32
+	CageID                 uuid.NullUUID
+}
+
+func (q *Queries) GetCageAndDinosaurs(ctx context.Context, id uuid.UUID) (GetCageAndDinosaursRow, error) {
+	row := q.db.QueryRowContext(ctx, getCageAndDinosaurs, id)
+	var i GetCageAndDinosaursRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.PredominateEatingHabit,
+		&i.ID_2,
+		&i.Name_2,
+		&i.EatingHabit,
+		&i.Species,
+		&i.CageID,
+	)
+	return i, err
+}
+
+const getCageDinosaurCount = `-- name: GetCageDinosaurCount :one
+SELECT COUNT(*) FROM dinosaur WHERE cage_id = $1
+`
+
+func (q *Queries) GetCageDinosaurCount(ctx context.Context, cageID uuid.NullUUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getCageDinosaurCount, cageID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getCages = `-- name: GetCages :many
-SELECT id, name, status FROM cage
+SELECT id, name, status, predominate_eating_habit FROM cage
 `
 
 func (q *Queries) GetCages(ctx context.Context) ([]Cage, error) {
@@ -45,7 +97,12 @@ func (q *Queries) GetCages(ctx context.Context) ([]Cage, error) {
 	var items []Cage
 	for rows.Next() {
 		var i Cage
-		if err := rows.Scan(&i.ID, &i.Name, &i.Status); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Status,
+			&i.PredominateEatingHabit,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -72,6 +129,42 @@ func (q *Queries) GetDinosaur(ctx context.Context, id uuid.UUID) (Dinosaur, erro
 		&i.EatingHabit,
 		&i.Species,
 		&i.CageID,
+	)
+	return i, err
+}
+
+const getDinosaurAndCage = `-- name: GetDinosaurAndCage :one
+SELECT dinosaur.id, dinosaur.name, dinosaur.eating_habit, dinosaur.species, dinosaur.cage_id, cage.id, cage.name, cage.status, cage.predominate_eating_habit
+FROM dinosaur
+    LEFT JOIN cage ON dinosaur.cage_id = cage.id
+    WHERE dinosaur.id = $1
+`
+
+type GetDinosaurAndCageRow struct {
+	ID                     uuid.UUID
+	Name                   sql.NullString
+	EatingHabit            sql.NullInt32
+	Species                sql.NullInt32
+	CageID                 uuid.NullUUID
+	ID_2                   uuid.NullUUID
+	Name_2                 sql.NullString
+	Status                 sql.NullInt32
+	PredominateEatingHabit sql.NullInt32
+}
+
+func (q *Queries) GetDinosaurAndCage(ctx context.Context, id uuid.UUID) (GetDinosaurAndCageRow, error) {
+	row := q.db.QueryRowContext(ctx, getDinosaurAndCage, id)
+	var i GetDinosaurAndCageRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.EatingHabit,
+		&i.Species,
+		&i.CageID,
+		&i.ID_2,
+		&i.Name_2,
+		&i.Status,
+		&i.PredominateEatingHabit,
 	)
 	return i, err
 }
@@ -159,8 +252,22 @@ func (q *Queries) GetDinosaursByCage(ctx context.Context, cageID uuid.NullUUID) 
 	return items, nil
 }
 
+const updateCagePredominateEatingHabit = `-- name: UpdateCagePredominateEatingHabit :exec
+UPDATE cage SET predominate_eating_habit = $1 WHERE id = $2
+`
+
+type UpdateCagePredominateEatingHabitParams struct {
+	PredominateEatingHabit sql.NullInt32
+	ID                     uuid.UUID
+}
+
+func (q *Queries) UpdateCagePredominateEatingHabit(ctx context.Context, arg UpdateCagePredominateEatingHabitParams) error {
+	_, err := q.db.ExecContext(ctx, updateCagePredominateEatingHabit, arg.PredominateEatingHabit, arg.ID)
+	return err
+}
+
 const updateCageStatus = `-- name: UpdateCageStatus :one
-UPDATE cage SET status = $1 WHERE id = $2 RETURNING id, name, status
+UPDATE cage SET status = $1 WHERE id = $2 RETURNING id, name, status, predominate_eating_habit
 `
 
 type UpdateCageStatusParams struct {
@@ -171,12 +278,17 @@ type UpdateCageStatusParams struct {
 func (q *Queries) UpdateCageStatus(ctx context.Context, arg UpdateCageStatusParams) (Cage, error) {
 	row := q.db.QueryRowContext(ctx, updateCageStatus, arg.Status, arg.ID)
 	var i Cage
-	err := row.Scan(&i.ID, &i.Name, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.PredominateEatingHabit,
+	)
 	return i, err
 }
 
 const updateCageStatusByName = `-- name: UpdateCageStatusByName :one
-UPDATE cage SET status = $1 WHERE name = $2 RETURNING id, name, status
+UPDATE cage SET status = $1 WHERE name = $2 RETURNING id, name, status, predominate_eating_habit
 `
 
 type UpdateCageStatusByNameParams struct {
@@ -187,29 +299,66 @@ type UpdateCageStatusByNameParams struct {
 func (q *Queries) UpdateCageStatusByName(ctx context.Context, arg UpdateCageStatusByNameParams) (Cage, error) {
 	row := q.db.QueryRowContext(ctx, updateCageStatusByName, arg.Status, arg.Name)
 	var i Cage
-	err := row.Scan(&i.ID, &i.Name, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.PredominateEatingHabit,
+	)
 	return i, err
 }
 
-const upsertCage = `-- name: UpsertCage :exec
-INSERT INTO cage (name, status) VALUES ($1, $2)
-    ON CONFLICT (name) DO UPDATE SET (status) = ($2)
+const updateDinosaurCage = `-- name: UpdateDinosaurCage :one
+UPDATE dinosaur SET cage_id = $1 WHERE id = $2 RETURNING id, name, eating_habit, species, cage_id
+`
+
+type UpdateDinosaurCageParams struct {
+	CageID uuid.NullUUID
+	ID     uuid.UUID
+}
+
+func (q *Queries) UpdateDinosaurCage(ctx context.Context, arg UpdateDinosaurCageParams) (Dinosaur, error) {
+	row := q.db.QueryRowContext(ctx, updateDinosaurCage, arg.CageID, arg.ID)
+	var i Dinosaur
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.EatingHabit,
+		&i.Species,
+		&i.CageID,
+	)
+	return i, err
+}
+
+const upsertCage = `-- name: UpsertCage :one
+INSERT INTO cage (name, status, predominate_eating_habit) VALUES ($1, $2, $3)
+    ON CONFLICT (name) DO UPDATE SET (status, predominate_eating_habit) = ($2, $3)
+    RETURNING id, name, status, predominate_eating_habit
 `
 
 type UpsertCageParams struct {
-	Name   sql.NullString
-	Status sql.NullInt32
+	Name                   sql.NullString
+	Status                 sql.NullInt32
+	PredominateEatingHabit sql.NullInt32
 }
 
-func (q *Queries) UpsertCage(ctx context.Context, arg UpsertCageParams) error {
-	_, err := q.db.ExecContext(ctx, upsertCage, arg.Name, arg.Status)
-	return err
+func (q *Queries) UpsertCage(ctx context.Context, arg UpsertCageParams) (Cage, error) {
+	row := q.db.QueryRowContext(ctx, upsertCage, arg.Name, arg.Status, arg.PredominateEatingHabit)
+	var i Cage
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Status,
+		&i.PredominateEatingHabit,
+	)
+	return i, err
 }
 
-const upsertDinosaur = `-- name: UpsertDinosaur :exec
+const upsertDinosaur = `-- name: UpsertDinosaur :one
 INSERT INTO dinosaur (name, eating_habit, species, cage_id)
     VALUES ($1, $2, $3, $4)
     ON CONFLICT (name) DO UPDATE SET (eating_habit, species, cage_id) = ($2, $3, $4)
+    RETURNING id, name, eating_habit, species, cage_id
 `
 
 type UpsertDinosaurParams struct {
@@ -219,12 +368,20 @@ type UpsertDinosaurParams struct {
 	CageID      uuid.NullUUID
 }
 
-func (q *Queries) UpsertDinosaur(ctx context.Context, arg UpsertDinosaurParams) error {
-	_, err := q.db.ExecContext(ctx, upsertDinosaur,
+func (q *Queries) UpsertDinosaur(ctx context.Context, arg UpsertDinosaurParams) (Dinosaur, error) {
+	row := q.db.QueryRowContext(ctx, upsertDinosaur,
 		arg.Name,
 		arg.EatingHabit,
 		arg.Species,
 		arg.CageID,
 	)
-	return err
+	var i Dinosaur
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.EatingHabit,
+		&i.Species,
+		&i.CageID,
+	)
+	return i, err
 }

@@ -2,22 +2,21 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS cage (
     id     UUID NOT NULL DEFAULT uuid_generate_v4(),
-    name   TEXT,
+    name   TEXT UNIQUE,
     status INT,
+    predominate_eating_habit INT,
 
     CONSTRAINT pkey_id_cage PRIMARY KEY (id)
 );
 
 CREATE TABLE IF NOT EXISTS dinosaur (
     id           UUID NOT NULL DEFAULT uuid_generate_v4(),
-    name         TEXT,
+    name         TEXT UNIQUE,
     eating_habit INT,
     species      INT,
     cage_id      UUID,
 
-    CONSTRAINT pkey_id_dinosaur PRIMARY KEY (id),
-    CONSTRAINT FK_dinosaur_cage FOREIGN KEY (cage_id)
-        REFERENCES cage(id)
+    CONSTRAINT pkey_id_dinosaur PRIMARY KEY (id)
 );
 -- +goose StatementEnd
 

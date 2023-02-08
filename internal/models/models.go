@@ -2,20 +2,49 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"strings"
 )
 
 type Cage struct {
-	ID     uuid.UUID
-	Name   string
-	Status Status
+	ID                     uuid.UUID   `json:"id"`
+	Name                   string      `json:"name"`
+	Status                 Status      `json:"status"`
+	Dinosaurs              []Dinosaur  `json:"dinosaurs"`
+	PredominateEatingHabit EatingHabit `json:"predominate_eating_habit"`
+	Capacity               int32       `json:"capacity"`
+}
+
+type CageResponse struct {
+	ID                     uuid.UUID          `json:"id"`
+	Name                   string             `json:"name"`
+	Status                 string             `json:"status"`
+	Dinosaurs              []DinosaurResponse `json:"dinosaurs"`
+	PredominateEatingHabit string             `json:"predominate_eating_habit"`
+	Capacity               int32              `json:"capacity"`
 }
 
 type Dinosaur struct {
-	ID          uuid.UUID
-	Name        string
-	EatingHabit EatingHabit
-	Species     Species
-	CageID      uuid.NullUUID
+	ID          uuid.UUID   `json:"id"`
+	Name        string      `json:"name"`
+	EatingHabit EatingHabit `json:"eating_habit"`
+	Species     Species     `json:"species"`
+	CageId      uuid.UUID   `json:"cage_id"`
+	Cage        Cage        `json:"cage"`
+}
+
+type DinosaurResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	EatingHabit string    `json:"eating_habit"`
+	Species     string    `json:"species"`
+	CageId      uuid.UUID `json:"cage_id"`
+	CageName    string    `json:"cage_name"`
+}
+
+type DinosaurRequest struct {
+	Name        string `json:"name"`
+	EatingHabit string `json:"eating_habit"`
+	Species     string `json:"species"`
 }
 
 type Status int32
@@ -35,12 +64,22 @@ func (s Status) String() string {
 	return "DOWN"
 }
 
+func (s Status) Int32() int32 {
+	switch s {
+	case ACTIVE:
+		return 0
+	case DOWN:
+		return 1
+	}
+	return 1 // Down in the default ** For Safety **
+}
+
 type EatingHabit int32
 
 const (
-	CARNIVORE EatingHabit = iota
+	UNKNOWN EatingHabit = iota
+	CARNIVORE
 	HERBIVORE
-	UNKNOWN
 )
 
 func (eh EatingHabit) String() string {
@@ -51,6 +90,16 @@ func (eh EatingHabit) String() string {
 		return "Herbivore"
 	}
 	return "Unknown"
+}
+
+func (eh EatingHabit) Int32() int32 {
+	switch eh {
+	case CARNIVORE:
+		return 1
+	case HERBIVORE:
+		return 2
+	}
+	return 0 // UNKNOWN
 }
 
 type Species int32
@@ -64,6 +113,7 @@ const (
 	STEGOSAURUS
 	ANKYLOSAURUS
 	TRICERATOPS
+	SPECIES_UNKNOWN
 )
 
 func (s Species) String() string {
@@ -86,6 +136,50 @@ func (s Species) String() string {
 		return "Triceratops"
 	}
 	return "Unknown Species"
+}
+
+func (s Species) Int32() int32 {
+	switch s {
+	case TYRANNOSAURUS:
+		return 0
+	case VELOCIRAPTOR:
+		return 1
+	case SPINOSAURUS:
+		return 2
+	case MEGALOSAURUS:
+		return 3
+	case BRACHIOSAURUS:
+		return 4
+	case STEGOSAURUS:
+		return 5
+	case ANKYLOSAURUS:
+		return 6
+	case TRICERATOPS:
+		return 7
+	}
+	return 8 // SPECIES_UNKNOW
+}
+
+func ParseSpecies(species string) Species {
+	switch strings.ToLower(species) {
+	case "tyrannosaurus":
+		return TYRANNOSAURUS
+	case "velociraptor":
+		return VELOCIRAPTOR
+	case "spinosaurus":
+		return SPINOSAURUS
+	case "megalosaurus":
+		return MEGALOSAURUS
+	case "brachiosaurus":
+		return BRACHIOSAURUS
+	case "stegosaurus":
+		return STEGOSAURUS
+	case "ankylosaurus":
+		return ANKYLOSAURUS
+	case "triceratops":
+		return TRICERATOPS
+	}
+	return SPECIES_UNKNOWN
 }
 
 func (s Species) EatingHabit() EatingHabit {

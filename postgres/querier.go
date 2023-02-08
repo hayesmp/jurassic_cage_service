@@ -14,15 +14,20 @@ import (
 type Querier interface {
 	DeleteDinosaur(ctx context.Context, id uuid.UUID) error
 	GetCage(ctx context.Context, id uuid.UUID) (Cage, error)
+	GetCageAndDinosaurs(ctx context.Context, id uuid.UUID) (GetCageAndDinosaursRow, error)
+	GetCageDinosaurCount(ctx context.Context, cageID uuid.NullUUID) (int64, error)
 	GetCages(ctx context.Context) ([]Cage, error)
 	GetDinosaur(ctx context.Context, id uuid.UUID) (Dinosaur, error)
+	GetDinosaurAndCage(ctx context.Context, id uuid.UUID) (GetDinosaurAndCageRow, error)
 	GetDinosaurByName(ctx context.Context, name sql.NullString) (Dinosaur, error)
 	GetDinosaurs(ctx context.Context) ([]Dinosaur, error)
 	GetDinosaursByCage(ctx context.Context, cageID uuid.NullUUID) ([]Dinosaur, error)
+	UpdateCagePredominateEatingHabit(ctx context.Context, arg UpdateCagePredominateEatingHabitParams) error
 	UpdateCageStatus(ctx context.Context, arg UpdateCageStatusParams) (Cage, error)
 	UpdateCageStatusByName(ctx context.Context, arg UpdateCageStatusByNameParams) (Cage, error)
-	UpsertCage(ctx context.Context, arg UpsertCageParams) error
-	UpsertDinosaur(ctx context.Context, arg UpsertDinosaurParams) error
+	UpdateDinosaurCage(ctx context.Context, arg UpdateDinosaurCageParams) (Dinosaur, error)
+	UpsertCage(ctx context.Context, arg UpsertCageParams) (Cage, error)
+	UpsertDinosaur(ctx context.Context, arg UpsertDinosaurParams) (Dinosaur, error)
 }
 
 var _ Querier = (*Queries)(nil)

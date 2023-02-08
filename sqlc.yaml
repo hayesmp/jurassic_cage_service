@@ -5,6 +5,6 @@ packages:
   - path: "postgres"
     name: "postgres"
     engine: "postgresql"
-    schema: "service/migrations/"
+    schema: "postgres/migrations/"
     queries: "postgres/query.sql"
     emit_interface: true

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hayesmp/jurassic-cage-service/internal"
 	"github.com/hayesmp/jurassic-cage-service/postgres"
+	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"time"
 )
@@ -16,13 +17,13 @@ type JurassicCageService struct {
 	db     *postgres.Queries
 }
 
-func (s *JurassicCageService) Init(config *internal.Config, logger zerolog.Logger, db *postgres.Queries) *JurassicCageService {
+func Init(config *internal.Config, logger zerolog.Logger) *JurassicCageService {
 	service := &JurassicCageService{
 		config: config,
 		env:    config.Env,
 	}
 	service.logger = logger
-	s.initDb()
+	service.initDb()
 
 	return service
 }
@@ -30,12 +31,18 @@ func (s *JurassicCageService) Init(config *internal.Config, logger zerolog.Logge
 func (s *JurassicCageService) initDb() {
 	s.logger.Info().Msg("initializing db")
 
-	connectionString := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+	connectionString := fmt.Sprintf("host=%s port=%s dbname=%s sslmode=disable",
 		s.config.PostgresHost,
 		s.config.PostgresPort,
-		s.config.PostgresUser,
-		s.config.PostgresPw,
 		s.config.PostgresDb)
+	if len(s.config.PostgresUser) > 0 {
+		connectionString = fmt.Sprintf("%s user=%s", connectionString, s.config.PostgresUser)
+	}
+	if len(s.config.PostgresPw) > 0 {
+		connectionString = fmt.Sprintf("%s password=%s", connectionString, s.config.PostgresPw)
+	}
+
+	s.logger.Debug().Msgf("%+v", connectionString)
 
 	for s.db == nil {
 		db, err := sql.Open(

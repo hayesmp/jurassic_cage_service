@@ -11,9 +11,10 @@ import (
 )
 
 type Cage struct {
-	ID     uuid.UUID
-	Name   sql.NullString
-	Status sql.NullInt32
+	ID                     uuid.UUID
+	Name                   sql.NullString
+	Status                 sql.NullInt32
+	PredominateEatingHabit sql.NullInt32
 }
 
 type Dinosaur struct {
