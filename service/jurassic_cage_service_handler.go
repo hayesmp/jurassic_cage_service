@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/hayesmp/jurassic-cage-service/internal"
 	"github.com/hayesmp/jurassic-cage-service/internal/models"
-	"github.com/hayesmp/jurassic-cage-service/postgres"
 	"net/http"
 )
 
@@ -49,11 +47,8 @@ func (s *JurassicCageService) CreateCage(c *gin.Context) {
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
-	cage, err := s.db.UpsertCage(c, postgres.UpsertCageParams{
-		Name:                   sql.NullString{newCage.Name, internal.ValidateString(newCage.Name)},
-		Status:                 sql.NullInt32{models.ACTIVE.Int32(), internal.ValidateInt32(models.ACTIVE.Int32())},
-		PredominateEatingHabit: sql.NullInt32{models.UNKNOWN.Int32(), internal.ValidateInt32(models.UNKNOWN.Int32())},
-	})
+
+	cage, err := s.DbCreateCage(c, newCage)
 	if err != nil {
 		msg := "failed to save cage to local db"
 		s.logger.Error().Err(err).Msg(msg)
@@ -61,11 +56,18 @@ func (s *JurassicCageService) CreateCage(c *gin.Context) {
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, cage)
+	c.IndentedJSON(http.StatusOK, models.CageResponse{
+		ID:                     cage.ID,
+		Name:                   cage.Name,
+		Status:                 cage.Status.String(),
+		PredominateEatingHabit: cage.PredominateEatingHabit.String(),
+	})
 }
 
 func (s *JurassicCageService) GetAllCages(c *gin.Context) {
-	cages, err := s.DbGetAllCages(c)
+	status := c.Param("status")
+
+	cages, err := s.DbGetAllCages(c, status)
 	if err != nil {
 		msg := "failed to get cages"
 		s.logger.Error().Err(err).Msg(msg)
@@ -99,6 +101,72 @@ func (s *JurassicCageService) GetAllCages(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, retCages)
 }
 
+func (s *JurassicCageService) UpdateCage(c *gin.Context) {
+	var updateCage models.CageRequest
+	id := c.Param("id")
+
+	err := c.BindJSON(&updateCage)
+	if err != nil {
+		msg := "failed to bind json newCage"
+		s.logger.Error().Err(err).Msg(msg)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	cageUuid, err := uuid.Parse(id)
+	if err != nil {
+		msg := "failed to parsed uuid"
+		s.logger.Error().Err(err).Msg(msg)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	cage, err := s.DbGetCage(c, cageUuid)
+	if err != nil {
+		msg := "failed to retrieve cage from local db"
+		s.logger.Error().Err(err).Msg(msg)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	if models.ParseStatus(updateCage.Status) == models.DOWN && cage.Status == models.ACTIVE {
+		if len(cage.Dinosaurs) > 0 {
+			msg := fmt.Sprintf("cannot set cage to DOWN with %d dinosaurs in cage", len(cage.Dinosaurs))
+			s.logger.Error().Err(err).Msg(msg)
+			c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+	}
+
+	cage, err = s.DbUpdateCage(c, cage)
+	if err != nil {
+		msg := "failed to update cage on local db"
+		s.logger.Error().Err(err).Msg(msg)
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
+		return
+	}
+
+	var dinosResponse []models.DinosaurResponse
+	for _, dino := range cage.Dinosaurs {
+		dinosResponse = append(dinosResponse, models.DinosaurResponse{
+			ID:          dino.ID,
+			Name:        dino.Name,
+			Species:     dino.Species.String(),
+			EatingHabit: dino.EatingHabit.String(),
+			CageId:      dino.CageId,
+			CageName:    dino.Cage.Name,
+		})
+	}
+
+	c.IndentedJSON(http.StatusOK, models.CageResponse{
+		ID:                     cage.ID,
+		Name:                   cage.Name,
+		Status:                 cage.Status.String(),
+		PredominateEatingHabit: cage.PredominateEatingHabit.String(),
+		Dinosaurs:              dinosResponse,
+	})
+}
+
 func (s *JurassicCageService) GetDinosaur(c *gin.Context) {
 	id := c.Param("id")
 
@@ -129,7 +197,6 @@ func (s *JurassicCageService) GetDinosaur(c *gin.Context) {
 
 func (s *JurassicCageService) CreateDinosaur(c *gin.Context) {
 	var newDinosaurRequest models.DinosaurRequest
-	var newDinosaur models.Dinosaur
 
 	err := c.BindJSON(&newDinosaurRequest)
 	if err != nil {
@@ -139,31 +206,7 @@ func (s *JurassicCageService) CreateDinosaur(c *gin.Context) {
 		return
 	}
 
-	newDinosaur.Name = newDinosaurRequest.Name
-	newDinosaur.Species = models.ParseSpecies(newDinosaurRequest.Species)
-	newDinosaur.EatingHabit = newDinosaur.Species.EatingHabit()
-
-	upsertDinoParams := postgres.UpsertDinosaurParams{
-		Name:        sql.NullString{newDinosaur.Name, internal.ValidateString(newDinosaur.Name)},
-		Species:     sql.NullInt32{newDinosaur.Species.Int32(), internal.ValidateInt32(newDinosaur.Species.Int32())},
-		EatingHabit: sql.NullInt32{newDinosaur.Species.EatingHabit().Int32(), internal.ValidateInt32(newDinosaur.Species.EatingHabit().Int32())},
-	}
-
-	/*
-		if len(newDinosaurRequest.CageId) > 0 {
-			cageUuid, err := uuid.Parse(newDinosaurRequest.CageId)
-			if err != nil {
-				msg := "failed to parsed uuid"
-				s.logger.Error().Err(err).Msg(msg)
-				c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
-				return
-			}
-			upsertDinoParams.CageID = uuid.NullUUID{cageUuid, internal.ValidateUuid(cageUuid)}
-		} else {
-			upsertDinoParams.CageID = uuid.NullUUID{uuid.Nil, true}
-		}
-	*/
-	dinosaur, err := s.db.UpsertDinosaur(c, upsertDinoParams)
+	dinosaur, err := s.DbCreateDinosaur(c, newDinosaurRequest)
 	if err != nil {
 		msg := "failed to save dinosaur to local db"
 		s.logger.Error().Err(err).Msg(msg)
@@ -171,15 +214,15 @@ func (s *JurassicCageService) CreateDinosaur(c *gin.Context) {
 		return
 	}
 
-	dinoResponse := &models.Dinosaur{
+	dinoResponse := &models.DinosaurResponse{
 		ID:          dinosaur.ID,
-		Name:        dinosaur.Name.String,
-		Species:     models.Species(dinosaur.Species.Int32),
-		EatingHabit: models.EatingHabit(dinosaur.EatingHabit.Int32),
+		Name:        dinosaur.Name,
+		Species:     dinosaur.Species.String(),
+		EatingHabit: dinosaur.EatingHabit.String(),
 	}
 
-	if dinosaur.CageID.UUID != uuid.Nil {
-		cage, err := s.db.GetCage(c, dinosaur.CageID.UUID)
+	if dinosaur.CageId != uuid.Nil {
+		cage, err := s.db.GetCage(c, dinosaur.CageId)
 		if err != nil && err == sql.ErrNoRows {
 			msg := "no cage found on local db"
 			s.logger.Error().Err(err).Msg(msg)
@@ -192,18 +235,17 @@ func (s *JurassicCageService) CreateDinosaur(c *gin.Context) {
 			c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
 		}
-		dinoResponse.Cage = models.Cage{
-			Name:   cage.Name.String,
-			Status: models.Status(cage.Status.Int32),
-			ID:     cage.ID,
-		}
+		dinoResponse.CageId = cage.ID
+		dinoResponse.CageName = cage.Name.String
 	}
 
 	c.IndentedJSON(http.StatusOK, dinoResponse)
 }
 
 func (s *JurassicCageService) GetAllDinosaurs(c *gin.Context) {
-	dinosaurs, err := s.DbGetAllDinosaurs(c)
+	species := c.Param("species")
+
+	dinosaurs, err := s.DbGetAllDinosaurs(c, species)
 	if err != nil {
 		msg := "failed to get dinosaurs"
 		s.logger.Error().Err(err).Msg(msg)
@@ -337,34 +379,3 @@ func (s *JurassicCageService) AddDinosaurToCage(c *gin.Context) {
 		CageName:    cage.Name,
 	})
 }
-
-//func (s *JurassicCageService) RemoveDinosaurFromCage(c *gin.Context) {
-//	id := c.Param("id")
-//
-//	uuId, err := uuid.Parse(id)
-//	if err != nil {
-//		msg := "failed to parsed uuid"
-//		s.logger.Error().Err(err).Msg(msg)
-//		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
-//		return
-//	}
-//	// set cage id to nil
-//	dinosaur, err := s.db.UpdateDinosaurCage(c, postgres.UpdateDinosaurCageParams{
-//		CageID: uuid.NullUUID{uuid.Nil, true},
-//		ID:     uuId,
-//	})
-//	if err != nil && err == sql.ErrNoRows {
-//		msg := "dinosaur not found"
-//		s.logger.Error().Err(err).Msg(msg)
-//		c.IndentedJSON(http.StatusNotFound, gin.H{"error": msg})
-//		return
-//	}
-//	if err != nil {
-//		msg := "error updating dinosaur on local db"
-//		s.logger.Error().Err(err).Msg(msg)
-//		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
-//		return
-//	}
-//
-//	c.IndentedJSON(http.StatusOK, dinosaur)
-//}

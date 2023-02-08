@@ -35,6 +35,9 @@ var _ Querier = &QuerierMock{}
 //			GetCagesFunc: func(ctx context.Context) ([]Cage, error) {
 //				panic("mock out the GetCages method")
 //			},
+//			GetCagesByStatusFunc: func(ctx context.Context, status sql.NullInt32) ([]Cage, error) {
+//				panic("mock out the GetCagesByStatus method")
+//			},
 //			GetDinosaurFunc: func(ctx context.Context, id uuid.UUID) (Dinosaur, error) {
 //				panic("mock out the GetDinosaur method")
 //			},
@@ -49,6 +52,9 @@ var _ Querier = &QuerierMock{}
 //			},
 //			GetDinosaursByCageFunc: func(ctx context.Context, cageID uuid.NullUUID) ([]Dinosaur, error) {
 //				panic("mock out the GetDinosaursByCage method")
+//			},
+//			GetDinosaursBySpeciesFunc: func(ctx context.Context, species sql.NullInt32) ([]Dinosaur, error) {
+//				panic("mock out the GetDinosaursBySpecies method")
 //			},
 //			UpdateCagePredominateEatingHabitFunc: func(ctx context.Context, arg UpdateCagePredominateEatingHabitParams) error {
 //				panic("mock out the UpdateCagePredominateEatingHabit method")
@@ -90,6 +96,9 @@ type QuerierMock struct {
 	// GetCagesFunc mocks the GetCages method.
 	GetCagesFunc func(ctx context.Context) ([]Cage, error)
 
+	// GetCagesByStatusFunc mocks the GetCagesByStatus method.
+	GetCagesByStatusFunc func(ctx context.Context, status sql.NullInt32) ([]Cage, error)
+
 	// GetDinosaurFunc mocks the GetDinosaur method.
 	GetDinosaurFunc func(ctx context.Context, id uuid.UUID) (Dinosaur, error)
 
@@ -104,6 +113,9 @@ type QuerierMock struct {
 
 	// GetDinosaursByCageFunc mocks the GetDinosaursByCage method.
 	GetDinosaursByCageFunc func(ctx context.Context, cageID uuid.NullUUID) ([]Dinosaur, error)
+
+	// GetDinosaursBySpeciesFunc mocks the GetDinosaursBySpecies method.
+	GetDinosaursBySpeciesFunc func(ctx context.Context, species sql.NullInt32) ([]Dinosaur, error)
 
 	// UpdateCagePredominateEatingHabitFunc mocks the UpdateCagePredominateEatingHabit method.
 	UpdateCagePredominateEatingHabitFunc func(ctx context.Context, arg UpdateCagePredominateEatingHabitParams) error
@@ -158,6 +170,13 @@ type QuerierMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 		}
+		// GetCagesByStatus holds details about calls to the GetCagesByStatus method.
+		GetCagesByStatus []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Status is the status argument value.
+			Status sql.NullInt32
+		}
 		// GetDinosaur holds details about calls to the GetDinosaur method.
 		GetDinosaur []struct {
 			// Ctx is the ctx argument value.
@@ -190,6 +209,13 @@ type QuerierMock struct {
 			Ctx context.Context
 			// CageID is the cageID argument value.
 			CageID uuid.NullUUID
+		}
+		// GetDinosaursBySpecies holds details about calls to the GetDinosaursBySpecies method.
+		GetDinosaursBySpecies []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Species is the species argument value.
+			Species sql.NullInt32
 		}
 		// UpdateCagePredominateEatingHabit holds details about calls to the UpdateCagePredominateEatingHabit method.
 		UpdateCagePredominateEatingHabit []struct {
@@ -239,11 +265,13 @@ type QuerierMock struct {
 	lockGetCageAndDinosaurs              sync.RWMutex
 	lockGetCageDinosaurCount             sync.RWMutex
 	lockGetCages                         sync.RWMutex
+	lockGetCagesByStatus                 sync.RWMutex
 	lockGetDinosaur                      sync.RWMutex
 	lockGetDinosaurAndCage               sync.RWMutex
 	lockGetDinosaurByName                sync.RWMutex
 	lockGetDinosaurs                     sync.RWMutex
 	lockGetDinosaursByCage               sync.RWMutex
+	lockGetDinosaursBySpecies            sync.RWMutex
 	lockUpdateCagePredominateEatingHabit sync.RWMutex
 	lockUpdateCageStatus                 sync.RWMutex
 	lockUpdateCageStatusByName           sync.RWMutex
@@ -428,6 +456,42 @@ func (mock *QuerierMock) GetCagesCalls() []struct {
 	return calls
 }
 
+// GetCagesByStatus calls GetCagesByStatusFunc.
+func (mock *QuerierMock) GetCagesByStatus(ctx context.Context, status sql.NullInt32) ([]Cage, error) {
+	if mock.GetCagesByStatusFunc == nil {
+		panic("QuerierMock.GetCagesByStatusFunc: method is nil but Querier.GetCagesByStatus was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Status sql.NullInt32
+	}{
+		Ctx:    ctx,
+		Status: status,
+	}
+	mock.lockGetCagesByStatus.Lock()
+	mock.calls.GetCagesByStatus = append(mock.calls.GetCagesByStatus, callInfo)
+	mock.lockGetCagesByStatus.Unlock()
+	return mock.GetCagesByStatusFunc(ctx, status)
+}
+
+// GetCagesByStatusCalls gets all the calls that were made to GetCagesByStatus.
+// Check the length with:
+//
+//	len(mockedQuerier.GetCagesByStatusCalls())
+func (mock *QuerierMock) GetCagesByStatusCalls() []struct {
+	Ctx    context.Context
+	Status sql.NullInt32
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Status sql.NullInt32
+	}
+	mock.lockGetCagesByStatus.RLock()
+	calls = mock.calls.GetCagesByStatus
+	mock.lockGetCagesByStatus.RUnlock()
+	return calls
+}
+
 // GetDinosaur calls GetDinosaurFunc.
 func (mock *QuerierMock) GetDinosaur(ctx context.Context, id uuid.UUID) (Dinosaur, error) {
 	if mock.GetDinosaurFunc == nil {
@@ -601,6 +665,42 @@ func (mock *QuerierMock) GetDinosaursByCageCalls() []struct {
 	mock.lockGetDinosaursByCage.RLock()
 	calls = mock.calls.GetDinosaursByCage
 	mock.lockGetDinosaursByCage.RUnlock()
+	return calls
+}
+
+// GetDinosaursBySpecies calls GetDinosaursBySpeciesFunc.
+func (mock *QuerierMock) GetDinosaursBySpecies(ctx context.Context, species sql.NullInt32) ([]Dinosaur, error) {
+	if mock.GetDinosaursBySpeciesFunc == nil {
+		panic("QuerierMock.GetDinosaursBySpeciesFunc: method is nil but Querier.GetDinosaursBySpecies was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		Species sql.NullInt32
+	}{
+		Ctx:     ctx,
+		Species: species,
+	}
+	mock.lockGetDinosaursBySpecies.Lock()
+	mock.calls.GetDinosaursBySpecies = append(mock.calls.GetDinosaursBySpecies, callInfo)
+	mock.lockGetDinosaursBySpecies.Unlock()
+	return mock.GetDinosaursBySpeciesFunc(ctx, species)
+}
+
+// GetDinosaursBySpeciesCalls gets all the calls that were made to GetDinosaursBySpecies.
+// Check the length with:
+//
+//	len(mockedQuerier.GetDinosaursBySpeciesCalls())
+func (mock *QuerierMock) GetDinosaursBySpeciesCalls() []struct {
+	Ctx     context.Context
+	Species sql.NullInt32
+} {
+	var calls []struct {
+		Ctx     context.Context
+		Species sql.NullInt32
+	}
+	mock.lockGetDinosaursBySpecies.RLock()
+	calls = mock.calls.GetDinosaursBySpecies
+	mock.lockGetDinosaursBySpecies.RUnlock()
 	return calls
 }
 

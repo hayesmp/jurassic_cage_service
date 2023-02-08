@@ -32,6 +32,7 @@ func main() {
 	r.POST("/cage", service.CreateCage)
 	r.GET("/cage", service.GetAllCages)
 	r.GET("/cage/:id", service.GetCage)
+	r.PUT("/cage/:id", service.UpdateCage)
 	r.GET("/dinosaur/:id", service.GetDinosaur)
 	r.POST("dinosaur", service.CreateDinosaur)
 	r.GET("/dinosaur", service.GetAllDinosaurs)

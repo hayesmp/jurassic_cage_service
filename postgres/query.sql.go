@@ -116,6 +116,38 @@ func (q *Queries) GetCages(ctx context.Context) ([]Cage, error) {
 	return items, nil
 }
 
+const getCagesByStatus = `-- name: GetCagesByStatus :many
+SELECT id, name, status, predominate_eating_habit FROM cage WHERE status = $1
+`
+
+func (q *Queries) GetCagesByStatus(ctx context.Context, status sql.NullInt32) ([]Cage, error) {
+	rows, err := q.db.QueryContext(ctx, getCagesByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Cage
+	for rows.Next() {
+		var i Cage
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Status,
+			&i.PredominateEatingHabit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDinosaur = `-- name: GetDinosaur :one
 SELECT id, name, eating_habit, species, cage_id FROM dinosaur WHERE id = $1
 `
@@ -225,6 +257,39 @@ SELECT id, name, eating_habit, species, cage_id FROM dinosaur WHERE cage_id = $1
 
 func (q *Queries) GetDinosaursByCage(ctx context.Context, cageID uuid.NullUUID) ([]Dinosaur, error) {
 	rows, err := q.db.QueryContext(ctx, getDinosaursByCage, cageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Dinosaur
+	for rows.Next() {
+		var i Dinosaur
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.EatingHabit,
+			&i.Species,
+			&i.CageID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDinosaursBySpecies = `-- name: GetDinosaursBySpecies :many
+SELECT id, name, eating_habit, species, cage_id FROM dinosaur WHERE species = $1
+`
+
+func (q *Queries) GetDinosaursBySpecies(ctx context.Context, species sql.NullInt32) ([]Dinosaur, error) {
+	rows, err := q.db.QueryContext(ctx, getDinosaursBySpecies, species)
 	if err != nil {
 		return nil, err
 	}

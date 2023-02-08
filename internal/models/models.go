@@ -23,6 +23,10 @@ type CageResponse struct {
 	Capacity               int32              `json:"capacity"`
 }
 
+type CageRequest struct {
+	Status string `json:"status"`
+}
+
 type Dinosaur struct {
 	ID          uuid.UUID   `json:"id"`
 	Name        string      `json:"name"`
@@ -72,6 +76,16 @@ func (s Status) Int32() int32 {
 		return 1
 	}
 	return 1 // Down in the default ** For Safety **
+}
+
+func ParseStatus(s string) Status {
+	switch strings.ToLower(s) {
+	case "active":
+		return ACTIVE
+	case "down":
+		return DOWN
+	}
+	return ACTIVE
 }
 
 type EatingHabit int32

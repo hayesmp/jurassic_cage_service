@@ -17,11 +17,13 @@ type Querier interface {
 	GetCageAndDinosaurs(ctx context.Context, id uuid.UUID) (GetCageAndDinosaursRow, error)
 	GetCageDinosaurCount(ctx context.Context, cageID uuid.NullUUID) (int64, error)
 	GetCages(ctx context.Context) ([]Cage, error)
+	GetCagesByStatus(ctx context.Context, status sql.NullInt32) ([]Cage, error)
 	GetDinosaur(ctx context.Context, id uuid.UUID) (Dinosaur, error)
 	GetDinosaurAndCage(ctx context.Context, id uuid.UUID) (GetDinosaurAndCageRow, error)
 	GetDinosaurByName(ctx context.Context, name sql.NullString) (Dinosaur, error)
 	GetDinosaurs(ctx context.Context) ([]Dinosaur, error)
 	GetDinosaursByCage(ctx context.Context, cageID uuid.NullUUID) ([]Dinosaur, error)
+	GetDinosaursBySpecies(ctx context.Context, species sql.NullInt32) ([]Dinosaur, error)
 	UpdateCagePredominateEatingHabit(ctx context.Context, arg UpdateCagePredominateEatingHabitParams) error
 	UpdateCageStatus(ctx context.Context, arg UpdateCageStatusParams) (Cage, error)
 	UpdateCageStatusByName(ctx context.Context, arg UpdateCageStatusByNameParams) (Cage, error)

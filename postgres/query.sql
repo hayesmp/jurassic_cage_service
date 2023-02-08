@@ -7,6 +7,9 @@ SELECT * FROM dinosaur WHERE name = $1;
 -- name: GetDinosaurs :many
 SELECT * FROM dinosaur;
 
+-- name: GetDinosaursBySpecies :many
+SELECT * FROM dinosaur WHERE species = $1;
+
 -- name: GetCageDinosaurCount :one
 SELECT COUNT(*) FROM dinosaur WHERE cage_id = $1;
 
@@ -37,6 +40,9 @@ SELECT * FROM cage WHERE id = $1;
 
 -- name: GetCages :many
 SELECT * FROM cage;
+
+-- name: GetCagesByStatus :many
+SELECT * FROM cage WHERE status = $1;
 
 -- name: GetCageAndDinosaurs :one
 SELECT cage.*, dinosaur.*
