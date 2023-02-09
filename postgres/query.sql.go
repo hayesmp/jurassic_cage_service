@@ -12,6 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteCage = `-- name: DeleteCage :exec
+DELETE FROM cage WHERE id = $1
+`
+
+func (q *Queries) DeleteCage(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteCage, id)
+	return err
+}
+
 const deleteDinosaur = `-- name: DeleteDinosaur :exec
 DELETE FROM dinosaur WHERE id = $1
 `

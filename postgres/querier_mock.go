@@ -20,6 +20,9 @@ var _ Querier = &QuerierMock{}
 //
 //		// make and configure a mocked Querier
 //		mockedQuerier := &QuerierMock{
+//			DeleteCageFunc: func(ctx context.Context, id uuid.UUID) error {
+//				panic("mock out the DeleteCage method")
+//			},
 //			DeleteDinosaurFunc: func(ctx context.Context, id uuid.UUID) error {
 //				panic("mock out the DeleteDinosaur method")
 //			},
@@ -81,6 +84,9 @@ var _ Querier = &QuerierMock{}
 //
 //	}
 type QuerierMock struct {
+	// DeleteCageFunc mocks the DeleteCage method.
+	DeleteCageFunc func(ctx context.Context, id uuid.UUID) error
+
 	// DeleteDinosaurFunc mocks the DeleteDinosaur method.
 	DeleteDinosaurFunc func(ctx context.Context, id uuid.UUID) error
 
@@ -137,6 +143,13 @@ type QuerierMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// DeleteCage holds details about calls to the DeleteCage method.
+		DeleteCage []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ID is the id argument value.
+			ID uuid.UUID
+		}
 		// DeleteDinosaur holds details about calls to the DeleteDinosaur method.
 		DeleteDinosaur []struct {
 			// Ctx is the ctx argument value.
@@ -260,6 +273,7 @@ type QuerierMock struct {
 			Arg UpsertDinosaurParams
 		}
 	}
+	lockDeleteCage                       sync.RWMutex
 	lockDeleteDinosaur                   sync.RWMutex
 	lockGetCage                          sync.RWMutex
 	lockGetCageAndDinosaurs              sync.RWMutex
@@ -278,6 +292,42 @@ type QuerierMock struct {
 	lockUpdateDinosaurCage               sync.RWMutex
 	lockUpsertCage                       sync.RWMutex
 	lockUpsertDinosaur                   sync.RWMutex
+}
+
+// DeleteCage calls DeleteCageFunc.
+func (mock *QuerierMock) DeleteCage(ctx context.Context, id uuid.UUID) error {
+	if mock.DeleteCageFunc == nil {
+		panic("QuerierMock.DeleteCageFunc: method is nil but Querier.DeleteCage was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		ID  uuid.UUID
+	}{
+		Ctx: ctx,
+		ID:  id,
+	}
+	mock.lockDeleteCage.Lock()
+	mock.calls.DeleteCage = append(mock.calls.DeleteCage, callInfo)
+	mock.lockDeleteCage.Unlock()
+	return mock.DeleteCageFunc(ctx, id)
+}
+
+// DeleteCageCalls gets all the calls that were made to DeleteCage.
+// Check the length with:
+//
+//	len(mockedQuerier.DeleteCageCalls())
+func (mock *QuerierMock) DeleteCageCalls() []struct {
+	Ctx context.Context
+	ID  uuid.UUID
+} {
+	var calls []struct {
+		Ctx context.Context
+		ID  uuid.UUID
+	}
+	mock.lockDeleteCage.RLock()
+	calls = mock.calls.DeleteCage
+	mock.lockDeleteCage.RUnlock()
+	return calls
 }
 
 // DeleteDinosaur calls DeleteDinosaurFunc.

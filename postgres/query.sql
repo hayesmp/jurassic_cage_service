@@ -63,3 +63,6 @@ UPDATE cage SET status = $1 WHERE id = $2 RETURNING *;
 
 -- name: UpdateCageStatusByName :one
 UPDATE cage SET status = $1 WHERE name = $2 RETURNING *;
+
+-- name: DeleteCage :exec
+DELETE FROM cage WHERE id = $1;

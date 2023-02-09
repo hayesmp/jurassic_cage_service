@@ -1,9 +1,9 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/hayesmp/jurassic-cage-service/internal"
 	"github.com/hayesmp/jurassic-cage-service/internal/models"
@@ -12,7 +12,34 @@ import (
 
 /* Db Methods */
 
-func (s *JurassicCageService) DbGetCage(c *gin.Context, cageId uuid.UUID) (models.Cage, error) {
+func (s *JurassicCageService) DbGetCage(c context.Context, cageId uuid.UUID) (models.Cage, error) {
+	cage, err := s.db.GetCage(c, cageId)
+	if err != nil && err == sql.ErrNoRows {
+		msg := "no cage found on local db"
+		s.logger.Error().Err(err).Msg(msg)
+		return models.Cage{}, err
+	}
+	if err != nil {
+		msg := "failed to retrieve cage from local db"
+		s.logger.Error().Err(err).Msg(msg)
+		return models.Cage{}, err
+	}
+
+	if err != nil {
+		msg := "failed to retrieve dinos from local db"
+		s.logger.Error().Err(err).Msg(msg)
+		return models.Cage{}, err
+	}
+
+	return models.Cage{
+		ID:                     cage.ID,
+		Name:                   cage.Name.String,
+		Status:                 models.Status(cage.Status.Int32),
+		PredominateEatingHabit: models.EatingHabit(cage.PredominateEatingHabit.Int32),
+	}, nil
+}
+
+func (s *JurassicCageService) DbGetCageAndDinosaurs(c context.Context, cageId uuid.UUID) (models.Cage, error) {
 	cage, err := s.db.GetCage(c, cageId)
 	if err != nil && err == sql.ErrNoRows {
 		msg := "no cage found on local db"
@@ -46,7 +73,7 @@ func (s *JurassicCageService) DbGetCage(c *gin.Context, cageId uuid.UUID) (model
 	}, nil
 }
 
-func (s *JurassicCageService) DbGetAllCages(c *gin.Context, status string) ([]models.Cage, error) {
+func (s *JurassicCageService) DbGetAllCages(c context.Context, status string) ([]models.Cage, error) {
 	var cages []postgres.Cage
 
 	// filter on status
@@ -100,12 +127,13 @@ func (s *JurassicCageService) DbGetAllCages(c *gin.Context, status string) ([]mo
 	return retCages, nil
 }
 
-func (s *JurassicCageService) DbCreateCage(c *gin.Context, cageRequest models.Cage) (models.Cage, error) {
-	cage, err := s.db.UpsertCage(c, postgres.UpsertCageParams{
+func (s *JurassicCageService) DbCreateCage(c context.Context, cageRequest models.Cage) (models.Cage, error) {
+	upsertCageParams := postgres.UpsertCageParams{
 		Name:                   sql.NullString{cageRequest.Name, internal.ValidateString(cageRequest.Name)},
 		Status:                 sql.NullInt32{models.ACTIVE.Int32(), internal.ValidateInt32(models.ACTIVE.Int32())},
 		PredominateEatingHabit: sql.NullInt32{models.UNKNOWN.Int32(), internal.ValidateInt32(models.UNKNOWN.Int32())},
-	})
+	}
+	cage, err := s.db.UpsertCage(c, upsertCageParams)
 	if err != nil {
 		msg := "failed to save cage to local db"
 		s.logger.Error().Err(err).Msg(msg)
@@ -119,7 +147,7 @@ func (s *JurassicCageService) DbCreateCage(c *gin.Context, cageRequest models.Ca
 	}, nil
 }
 
-func (s *JurassicCageService) DbUpdateCage(c *gin.Context, cageRequest models.Cage) (models.Cage, error) {
+func (s *JurassicCageService) DbUpdateCage(c context.Context, cageRequest models.Cage) (models.Cage, error) {
 	cage, err := s.db.UpsertCage(c, postgres.UpsertCageParams{
 		Name:                   sql.NullString{cageRequest.Name, internal.ValidateString(cageRequest.Name)},
 		Status:                 sql.NullInt32{cageRequest.Status.Int32(), internal.ValidateInt32(cageRequest.Status.Int32())},
@@ -138,7 +166,17 @@ func (s *JurassicCageService) DbUpdateCage(c *gin.Context, cageRequest models.Ca
 	}, nil
 }
 
-func (s *JurassicCageService) DbGetDinosaur(c *gin.Context, dinosaurId uuid.UUID) (models.Dinosaur, error) {
+func (s *JurassicCageService) DbDeleteCage(c context.Context, cageId uuid.UUID) error {
+	err := s.db.DeleteCage(c, cageId)
+	if err != nil {
+		msg := "failed to delete cage"
+		s.logger.Error().Err(err).Msg(msg)
+		return err
+	}
+	return nil
+}
+
+func (s *JurassicCageService) DbGetDinosaur(c context.Context, dinosaurId uuid.UUID) (models.Dinosaur, error) {
 	dinosaur, err := s.db.GetDinosaurAndCage(c, dinosaurId)
 	if err != nil && err == sql.ErrNoRows {
 		msg := "dinosaur not found"
@@ -163,7 +201,7 @@ func (s *JurassicCageService) DbGetDinosaur(c *gin.Context, dinosaurId uuid.UUID
 	}, nil
 }
 
-func (s *JurassicCageService) DbCreateDinosaur(c *gin.Context, dinoRequest models.DinosaurRequest) (models.Dinosaur, error) {
+func (s *JurassicCageService) DbCreateDinosaur(c context.Context, dinoRequest models.DinosaurRequest) (models.Dinosaur, error) {
 	species := models.ParseSpecies(dinoRequest.Species)
 	eatingHabit := species.EatingHabit()
 
@@ -188,7 +226,7 @@ func (s *JurassicCageService) DbCreateDinosaur(c *gin.Context, dinoRequest model
 	}, nil
 }
 
-func (s *JurassicCageService) DbGetAllDinosaurs(c *gin.Context, species string) ([]models.Dinosaur, error) {
+func (s *JurassicCageService) DbGetAllDinosaurs(c context.Context, species string) ([]models.Dinosaur, error) {
 	var dinosaurs []postgres.Dinosaur
 
 	// filter on species if the parameter is passed
@@ -241,7 +279,7 @@ func (s *JurassicCageService) DbGetAllDinosaurs(c *gin.Context, species string) 
 	return retDinos, nil
 }
 
-func (s *JurassicCageService) DbGetDinosaursByCageId(c *gin.Context, cageId uuid.UUID) ([]models.Dinosaur, error) {
+func (s *JurassicCageService) DbGetDinosaursByCageId(c context.Context, cageId uuid.UUID) ([]models.Dinosaur, error) {
 	dinosaurs, err := s.db.GetDinosaursByCage(c, uuid.NullUUID{cageId, internal.ValidateUuid(cageId)})
 	if err != nil && err == sql.ErrNoRows {
 		msg := "dinosaurs not found"
@@ -276,7 +314,7 @@ func (s *JurassicCageService) DbGetDinosaursByCageId(c *gin.Context, cageId uuid
 	return dinosaursRet, nil
 }
 
-func (s *JurassicCageService) DbGetCageDinosaurCount(c *gin.Context, cageId uuid.UUID) (int64, error) {
+func (s *JurassicCageService) DbGetCageDinosaurCount(c context.Context, cageId uuid.UUID) (int64, error) {
 	dinoCount, err := s.db.GetCageDinosaurCount(c, uuid.NullUUID{cageId, internal.ValidateUuid(cageId)})
 	if err != nil && err == sql.ErrNoRows {
 		msg := "no cage found on local db"
@@ -291,7 +329,7 @@ func (s *JurassicCageService) DbGetCageDinosaurCount(c *gin.Context, cageId uuid
 	return dinoCount, nil
 }
 
-func (s *JurassicCageService) DbAddDinosaurToCage(c *gin.Context, cageId uuid.UUID, dino models.Dinosaur) error {
+func (s *JurassicCageService) DbAddDinosaurToCage(c context.Context, cageId uuid.UUID, dino models.Dinosaur) error {
 	_, err := s.db.UpdateDinosaurCage(c, postgres.UpdateDinosaurCageParams{
 		ID:     dino.ID,
 		CageID: uuid.NullUUID{cageId, internal.ValidateUuid(cageId)},
@@ -315,7 +353,7 @@ func (s *JurassicCageService) DbAddDinosaurToCage(c *gin.Context, cageId uuid.UU
 	return nil
 }
 
-func (s *JurassicCageService) DbRemoveDinosaurFromCage(c *gin.Context, oldCageId uuid.UUID, dinoId uuid.UUID) error {
+func (s *JurassicCageService) DbRemoveDinosaurFromCage(c context.Context, oldCageId uuid.UUID, dinoId uuid.UUID) error {
 	_, err := s.db.UpdateDinosaurCage(c, postgres.UpdateDinosaurCageParams{
 		ID:     dinoId,
 		CageID: uuid.NullUUID{uuid.Nil, internal.ValidateUuid(uuid.Nil)},
@@ -365,5 +403,15 @@ func (s *JurassicCageService) DbRemoveDinosaurFromCage(c *gin.Context, oldCageId
 
 	}
 
+	return nil
+}
+
+func (s *JurassicCageService) DbDeleteDinosaur(c context.Context, dinoId uuid.UUID) error {
+	err := s.db.DeleteDinosaur(c, dinoId)
+	if err != nil {
+		msg := "failed to delete dinosaur"
+		s.logger.Error().Err(err).Msg(msg)
+		return err
+	}
 	return nil
 }

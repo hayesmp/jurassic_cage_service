@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/hayesmp/jurassic-cage-service/internal"
 	"github.com/hayesmp/jurassic-cage-service/postgres"
 	_ "github.com/lib/pq"
@@ -59,4 +60,17 @@ func (s *JurassicCageService) initDb() {
 	}
 
 	s.logger.Info().Msg("db initialized")
+}
+func (s *JurassicCageService) SetupRouter() *gin.Engine {
+	r := gin.Default()
+	r.POST("/cage", s.CreateCage)
+	r.GET("/cage", s.GetAllCages)
+	r.GET("/cage/:id", s.GetCage)
+	r.PUT("/cage/:id", s.UpdateCage)
+	r.GET("/dinosaur/:id", s.GetDinosaur)
+	r.POST("dinosaur", s.CreateDinosaur)
+	r.GET("/dinosaur", s.GetAllDinosaurs)
+	r.PUT("/dinosaur/:id/:cage_id", s.AddDinosaurToCage)
+
+	return r
 }

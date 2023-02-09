@@ -51,6 +51,10 @@ type DinosaurRequest struct {
 	Species     string `json:"species"`
 }
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 type Status int32
 
 const (
@@ -204,4 +208,14 @@ func (s Species) EatingHabit() EatingHabit {
 		return HERBIVORE
 	}
 	return UNKNOWN
+}
+
+func ParseEatingHabit(s string) string {
+	switch s {
+	case "brachiosaurus", "stegosaurus", "ankylosaurus", "triceratops":
+		return "herbivore"
+	case "tyrannosaurus", "velociraptor", "spinosaurus", "megalosaurus":
+		return "carnivore"
+	}
+	return ""
 }

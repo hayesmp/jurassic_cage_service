@@ -12,6 +12,7 @@ import (
 )
 
 type Querier interface {
+	DeleteCage(ctx context.Context, id uuid.UUID) error
 	DeleteDinosaur(ctx context.Context, id uuid.UUID) error
 	GetCage(ctx context.Context, id uuid.UUID) (Cage, error)
 	GetCageAndDinosaurs(ctx context.Context, id uuid.UUID) (GetCageAndDinosaursRow, error)
