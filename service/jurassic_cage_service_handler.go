@@ -76,7 +76,7 @@ func (s *JurassicCageService) CreateCage(c *gin.Context) {
 }
 
 func (s *JurassicCageService) GetAllCages(c *gin.Context) {
-	status := c.Param("status")
+	status := c.Query("status")
 
 	cages, err := s.DbGetAllCages(c, status)
 	if err != nil {
@@ -85,6 +85,7 @@ func (s *JurassicCageService) GetAllCages(c *gin.Context) {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"error": msg})
 		return
 	}
+
 	var retCages []models.CageResponse
 	for _, cage := range cages {
 
@@ -259,7 +260,7 @@ func (s *JurassicCageService) CreateDinosaur(c *gin.Context) {
 }
 
 func (s *JurassicCageService) GetAllDinosaurs(c *gin.Context) {
-	species := c.Param("species")
+	species := c.Query("species")
 
 	dinosaurs, err := s.DbGetAllDinosaurs(c, species)
 	if err != nil {

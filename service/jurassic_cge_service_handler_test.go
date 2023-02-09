@@ -120,6 +120,57 @@ func TestJurassicCageService_GetAllCages(t *testing.T) {
 	deleteTestCage(ctx, service, cage3.ID)
 }
 
+func TestJurassicCageService_GetAllCages_FilterByDown(t *testing.T) {
+	config := loadEnv(logger)
+	service := integrationTestSetup(config)
+	router := service.SetupRouter()
+	ctx := context.Background()
+	cage1 := createTestCage(ctx, service)
+	cage2, _ := service.DbCreateCage(ctx, models.Cage{
+		Name: "Up Cage",
+	})
+	cage3, _ := service.DbCreateCage(ctx, models.Cage{
+		Name: "Down Cage",
+	})
+	cage3R, _ := service.DbUpdateCage(ctx, models.Cage{
+		Name:   cage3.Name,
+		Status: models.DOWN,
+	})
+
+	w := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("GET", "/cage?status=down", nil)
+	router.ServeHTTP(w, req)
+
+	logger.Info().Msgf("%+v", w.Body)
+
+	var newCages []models.CageResponse
+	err := json.Unmarshal(w.Body.Bytes(), &newCages)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to unmarshal resp body")
+	}
+
+	var downCage bool
+	var upCage bool
+	for _, newCage := range newCages {
+		if newCage.Name == cage3R.Name {
+			downCage = true
+		}
+		if newCage.Name == cage2.Name {
+			upCage = true
+		}
+	}
+
+	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, true, downCage)
+	assert.Equal(t, false, upCage)
+
+	// cleanup test data
+	deleteTestCage(ctx, service, cage1.ID)
+	deleteTestCage(ctx, service, cage2.ID)
+	deleteTestCage(ctx, service, cage3.ID)
+}
+
 func TestJurassicCageService_UpdateCage(t *testing.T) {
 	config := loadEnv(logger)
 	service := integrationTestSetup(config)
@@ -282,6 +333,44 @@ func TestJurassicCageService_GetAllDinosaurs(t *testing.T) {
 
 	assert.Equal(t, 200, w.Code)
 	assert.Equal(t, true, len(newDinos) >= 3)
+
+	// cleanup test data
+	deleteTestDinosaur(ctx, service, dino1.ID)
+	deleteTestDinosaur(ctx, service, dino2.ID)
+	deleteTestDinosaur(ctx, service, dino3.ID)
+}
+
+func TestJurassicCageService_GetAllDinosaurs_FilterBySpecies(t *testing.T) {
+	config := loadEnv(logger)
+	service := integrationTestSetup(config)
+	router := service.SetupRouter()
+	ctx := context.Background()
+	dino1 := createTestDinosaur(ctx, service)
+	dino2 := createTestDinosaur(ctx, service)
+	dino3 := createTestDinosaur(ctx, service)
+	w := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("GET", fmt.Sprintf("/dinosaur?species=%s", dino1.Species), nil)
+	router.ServeHTTP(w, req)
+
+	logger.Info().Msgf("%+v", w.Body)
+
+	var newDinos []models.DinosaurResponse
+	err := json.Unmarshal(w.Body.Bytes(), &newDinos)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to unmarshal resp body")
+	}
+
+	var species bool
+	for _, newdino := range newDinos {
+		if newdino.Name == dino1.Name {
+			species = true
+		}
+	}
+
+	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, true, len(newDinos) >= 3)
+	assert.Equal(t, true, species)
 
 	// cleanup test data
 	deleteTestDinosaur(ctx, service, dino1.ID)
