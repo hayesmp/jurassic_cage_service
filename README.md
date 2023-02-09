@@ -68,7 +68,7 @@ GET http://localhost:8080/e00a9b7a-c996-4621-ad15-adb03d8529c5
 
 Sample output 200 Success:
 ```
-{{
+{
     "id": "e00a9b7a-c996-4621-ad15-adb03d8529c5",
     "name": "Cage 11a761bf-bd81-4195-a761-5574bbe047b0",
     "status": "DOWN",
@@ -100,7 +100,7 @@ Sample 200 Success:
 ```
 {
     "id": "57317bfe-6d28-4257-b4cd-9590df5647aa",
-    "name": "not dangerous dinosaurs2",
+    "name": "not dangerous dinosaurs",
     "status": "ACTIVE",
     "dinosaurs": null,
     "predominate_eating_habit": "Unknown",
