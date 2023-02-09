@@ -10,10 +10,38 @@ This project is designed to allow park personnel to manage dinosaur cage populat
 git clone git@github.com:hayesmp/jurassic_cage_service.git
 ```
 
-## Setting up the Golang app
+# Setting up the Golang app
+
+## Setup a postgres database
+
+Setup a postgres database for the project.
+
+## Setting up .env
+
+Rename the env file and fill with postgres database details (user, password, db name, host, port).
+
+```
+mv .env.sample .env
+```
+
+```
+>.env
+ENV=development
+HTTP_ADDRESS=0.0.0.0:8080
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=jurassic_cage_service
+POSTGRES_USER=
+POSTGRES_PW=
+
+```
+
+## Install Go
 
 You will need to have a recent version of the Goland SDK running (this project was written in 1.20). Be sure to download the version appropriate for your processor (arm64 if you're on an Mx Mac or Arm device).
 Download SDK: https://go.dev/dl/
+
+## Go mod tidy
 
 In the project directory, run:
 
@@ -383,4 +411,5 @@ Sample Cage Status 400 Error
 ```
 
 # TODO
+- Fix test to verify if the remaining occupied cage predominant eating habit is still set correctly
 - Would be nice to have API Swagger Docs

@@ -10,7 +10,7 @@ import (
 	"github.com/hayesmp/jurassic-cage-service/postgres"
 )
 
-/* Db Methods */
+/* Cage */
 
 func (s *JurassicCageService) DbGetCage(c context.Context, cageId uuid.UUID) (models.Cage, error) {
 	cage, err := s.db.GetCage(c, cageId)
@@ -21,12 +21,6 @@ func (s *JurassicCageService) DbGetCage(c context.Context, cageId uuid.UUID) (mo
 	}
 	if err != nil {
 		msg := "failed to retrieve cage from local db"
-		s.logger.Error().Err(err).Msg(msg)
-		return models.Cage{}, err
-	}
-
-	if err != nil {
-		msg := "failed to retrieve dinos from local db"
 		s.logger.Error().Err(err).Msg(msg)
 		return models.Cage{}, err
 	}
@@ -109,6 +103,7 @@ func (s *JurassicCageService) DbGetAllCages(c context.Context, status string) ([
 
 	var retCages []models.Cage
 	for _, cage := range cages {
+		// get dinosaurs for each cage
 		dinos, err := s.DbGetDinosaursByCageId(c, cage.ID)
 		if err != nil {
 			msg := fmt.Sprintf("failed to retrieve dinos for cage %s from local db", cage.ID.String())
@@ -128,12 +123,11 @@ func (s *JurassicCageService) DbGetAllCages(c context.Context, status string) ([
 }
 
 func (s *JurassicCageService) DbCreateCage(c context.Context, cageRequest models.Cage) (models.Cage, error) {
-	upsertCageParams := postgres.UpsertCageParams{
+	cage, err := s.db.UpsertCage(c, postgres.UpsertCageParams{
 		Name:                   sql.NullString{cageRequest.Name, internal.ValidateString(cageRequest.Name)},
 		Status:                 sql.NullInt32{models.ACTIVE.Int32(), internal.ValidateInt32(models.ACTIVE.Int32())},
 		PredominateEatingHabit: sql.NullInt32{models.UNKNOWN.Int32(), internal.ValidateInt32(models.UNKNOWN.Int32())},
-	}
-	cage, err := s.db.UpsertCage(c, upsertCageParams)
+	})
 	if err != nil {
 		msg := "failed to save cage to local db"
 		s.logger.Error().Err(err).Msg(msg)
@@ -176,6 +170,8 @@ func (s *JurassicCageService) DbDeleteCage(c context.Context, cageId uuid.UUID) 
 	return nil
 }
 
+/* Dinosaur */
+
 func (s *JurassicCageService) DbGetDinosaur(c context.Context, dinosaurId uuid.UUID) (models.Dinosaur, error) {
 	dinosaur, err := s.db.GetDinosaurAndCage(c, dinosaurId)
 	if err != nil && err == sql.ErrNoRows {
@@ -188,6 +184,7 @@ func (s *JurassicCageService) DbGetDinosaur(c context.Context, dinosaurId uuid.U
 		s.logger.Error().Err(err).Msg(msg)
 		return models.Dinosaur{}, err
 	}
+
 	return models.Dinosaur{
 		ID:          dinosaur.ID,
 		Name:        dinosaur.Name.String,
@@ -262,6 +259,7 @@ func (s *JurassicCageService) DbGetAllDinosaurs(c context.Context, species strin
 
 	var retDinos []models.Dinosaur
 	for _, dino := range dinosaurs {
+		// Get associated cage
 		cage, err := s.DbGetCage(c, dino.CageID.UUID)
 		if err != nil {
 			s.logger.Warn().Err(err).Msgf("failed to retrieve cage for dino %s", dino.ID.String())
@@ -294,6 +292,7 @@ func (s *JurassicCageService) DbGetDinosaursByCageId(c context.Context, cageId u
 
 	var dinosaursRet []models.Dinosaur
 	for _, dinosaur := range dinosaurs {
+		// Get associated cage
 		cage, err := s.DbGetCage(c, dinosaur.CageID.UUID)
 		if err != nil {
 			s.logger.Warn().Err(err).Msgf("failed to retrieve cage for dino %s", dinosaur.ID.String())
@@ -326,6 +325,7 @@ func (s *JurassicCageService) DbGetCageDinosaurCount(c context.Context, cageId u
 		s.logger.Error().Err(err).Msg(msg)
 		return 0, err
 	}
+
 	return dinoCount, nil
 }
 
@@ -356,7 +356,7 @@ func (s *JurassicCageService) DbAddDinosaurToCage(c context.Context, cageId uuid
 func (s *JurassicCageService) DbRemoveDinosaurFromCage(c context.Context, oldCageId uuid.UUID, dinoId uuid.UUID) error {
 	_, err := s.db.UpdateDinosaurCage(c, postgres.UpdateDinosaurCageParams{
 		ID:     dinoId,
-		CageID: uuid.NullUUID{uuid.Nil, internal.ValidateUuid(uuid.Nil)},
+		CageID: uuid.NullUUID{uuid.Nil, internal.ValidateUuid(uuid.Nil)}, // Set cage_id to uuid.Nil
 	})
 	if err != nil {
 		msg := fmt.Sprintf("failed to update cage_id on dinosaur %s", dinoId.String())
@@ -364,12 +364,13 @@ func (s *JurassicCageService) DbRemoveDinosaurFromCage(c context.Context, oldCag
 		return err
 	}
 
-	cage, err := s.DbGetCage(c, oldCageId)
-	if err != nil {
-		msg := "failed to get cage from local db"
-		s.logger.Error().Err(err).Msg(msg)
-		return err
-	}
+	// Shouldn't need this logic - See test TestJurassicCageService_MoveDinosaurFromOccupiedCageToNewCage
+	//cage, err := s.DbGetCage(c, oldCageId)
+	//if err != nil {
+	//	msg := "failed to get cage from local db"
+	//	s.logger.Error().Err(err).Msg(msg)
+	//	return err
+	//}
 
 	cageCount, err := s.DbGetCageDinosaurCount(c, oldCageId)
 	if err != nil {
@@ -379,6 +380,7 @@ func (s *JurassicCageService) DbRemoveDinosaurFromCage(c context.Context, oldCag
 	}
 
 	if cageCount == 0 {
+		// Set cage back to empty state
 		eatingHabit := models.UNKNOWN.Int32()
 		err = s.db.UpdateCagePredominateEatingHabit(c, postgres.UpdateCagePredominateEatingHabitParams{
 			PredominateEatingHabit: sql.NullInt32{eatingHabit, internal.ValidateInt32(eatingHabit)},
@@ -389,17 +391,19 @@ func (s *JurassicCageService) DbRemoveDinosaurFromCage(c context.Context, oldCag
 			s.logger.Error().Err(err).Msg(msg)
 			return err
 		}
-	} else {
-		eatingHabit := cage.PredominateEatingHabit.Int32()
-		err = s.db.UpdateCagePredominateEatingHabit(c, postgres.UpdateCagePredominateEatingHabitParams{
-			PredominateEatingHabit: sql.NullInt32{eatingHabit, internal.ValidateInt32(eatingHabit)},
-			ID:                     oldCageId,
-		})
-		if err != nil {
-			msg := fmt.Sprintf("failed to update predominate_eating_habit on cage %s", oldCageId.String())
-			s.logger.Error().Err(err).Msg(msg)
-			return err
-		}
+		// Shouldn't need this logic - See test TestJurassicCageService_MoveDinosaurFromOccupiedCageToNewCage
+		//} else {
+		//	// Updated predominant eating habit to remaining
+		//	eatingHabit := cage.PredominateEatingHabit.Int32()
+		//	err = s.db.UpdateCagePredominateEatingHabit(c, postgres.UpdateCagePredominateEatingHabitParams{
+		//		PredominateEatingHabit: sql.NullInt32{eatingHabit, internal.ValidateInt32(eatingHabit)},
+		//		ID:                     oldCageId,
+		//	})
+		//	if err != nil {
+		//		msg := fmt.Sprintf("failed to update predominate_eating_habit on cage %s", oldCageId.String())
+		//		s.logger.Error().Err(err).Msg(msg)
+		//		return err
+		//	}
 
 	}
 

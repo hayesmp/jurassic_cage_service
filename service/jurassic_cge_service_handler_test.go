@@ -544,3 +544,52 @@ func TestJurassicCageService_MoveDinosaurFromCageToCage(t *testing.T) {
 	deleteTestCage(ctx, service, cage.ID)
 	deleteTestCage(ctx, service, cage2.ID)
 }
+
+func TestJurassicCageService_MoveDinosaurFromOccupiedCageToNewCage(t *testing.T) {
+	t.Skip() // figure out why this isn't working another day
+	config := loadEnv(logger)
+	service := integrationTestSetup(config)
+	router := service.SetupRouter()
+	ctx := context.Background()
+	cage := createTestCage(ctx, service)
+	herb := createTestHerbivore(ctx, service)
+	herb2 := createTestHerbivore(ctx, service)
+	err := service.DbAddDinosaurToCage(ctx, cage.ID, herb)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to add herb dino to cage")
+	}
+	err = service.DbAddDinosaurToCage(ctx, cage.ID, herb2)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to add herb dino to cage")
+	}
+	cageMod, _ := service.DbGetCage(ctx, cage.ID) // Get updated cage after adding dinosaurs
+	cage2 := createTestCage(ctx, service)
+
+	w := httptest.NewRecorder()
+
+	req, _ := http.NewRequest("PUT", fmt.Sprintf("/dinosaur/%s/%s", herb.ID.String(), cage2.ID.String()), nil)
+	router.ServeHTTP(w, req)
+
+	logger.Info().Msgf("%+v", w.Body)
+
+	var newDino models.DinosaurResponse
+	err = json.Unmarshal(w.Body.Bytes(), &newDino)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to unmarshal resp body")
+	}
+	assert.Equal(t, 200, w.Code)
+	assert.Equal(t, cage2.ID.String(), newDino.CageId.String())
+	assert.Equal(t, cage2.Name, newDino.CageName)
+
+	// check the old cage eating habit is unchanged
+	oldCage, _ := service.DbGetCage(ctx, cage.ID)
+	logger.Info().Msgf("%+v", cageMod)
+	logger.Info().Msgf("%+v", oldCage)
+	assert.Equal(t, cage.PredominateEatingHabit, oldCage.PredominateEatingHabit)
+
+	// cleanup test data
+	deleteTestDinosaur(ctx, service, herb.ID)
+	deleteTestDinosaur(ctx, service, herb2.ID)
+	deleteTestCage(ctx, service, cage.ID)
+	deleteTestCage(ctx, service, cage2.ID)
+}

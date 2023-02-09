@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+/* Cage */
+
 type Cage struct {
 	ID                     uuid.UUID   `json:"id"`
 	Name                   string      `json:"name"`
@@ -26,6 +28,8 @@ type CageResponse struct {
 type CageRequest struct {
 	Status string `json:"status"`
 }
+
+/* Dinosaur */
 
 type Dinosaur struct {
 	ID          uuid.UUID   `json:"id"`
@@ -51,9 +55,13 @@ type DinosaurRequest struct {
 	Species     string `json:"species"`
 }
 
+/* Error */
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+/* Status */
 
 type Status int32
 
@@ -92,6 +100,8 @@ func ParseStatus(s string) Status {
 	return ACTIVE
 }
 
+/* Eating Habit */
+
 type EatingHabit int32
 
 const (
@@ -119,6 +129,8 @@ func (eh EatingHabit) Int32() int32 {
 	}
 	return 0 // UNKNOWN
 }
+
+/* Species */
 
 type Species int32
 

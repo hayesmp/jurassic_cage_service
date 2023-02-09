@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// validators for saving input values to local db
+
 func ValidateInt32(intValue int32) bool {
 	var intPointer *int32
 	intPointer = &intValue

@@ -1,13 +1,14 @@
 package service
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/hayesmp/jurassic-cage-service/internal/models"
 	"net/http"
 )
+
+/* Cage */
 
 func (s *JurassicCageService) GetCage(c *gin.Context) {
 	id := c.Param("id")
@@ -141,6 +142,7 @@ func (s *JurassicCageService) UpdateCage(c *gin.Context) {
 		return
 	}
 
+	// Cannot set cage to down if cage contains any dinosaurs
 	requestedStatus := models.ParseStatus(updateCage.Status)
 	if requestedStatus == models.DOWN && cage.Status == models.ACTIVE {
 		if len(cage.Dinosaurs) > 0 {
@@ -151,7 +153,7 @@ func (s *JurassicCageService) UpdateCage(c *gin.Context) {
 		}
 	}
 
-	// set the cage with the requested status
+	// Set the cage with the requested status
 	cage.Status = requestedStatus
 
 	cage, err = s.DbUpdateCage(c, cage)
@@ -182,6 +184,8 @@ func (s *JurassicCageService) UpdateCage(c *gin.Context) {
 		Dinosaurs:              dinosResponse,
 	})
 }
+
+/* Dinosaur */
 
 func (s *JurassicCageService) GetDinosaur(c *gin.Context) {
 	id := c.Param("id")
@@ -231,32 +235,12 @@ func (s *JurassicCageService) CreateDinosaur(c *gin.Context) {
 		return
 	}
 
-	dinoResponse := &models.DinosaurResponse{
+	c.IndentedJSON(http.StatusOK, &models.DinosaurResponse{
 		ID:          dinosaur.ID,
 		Name:        dinosaur.Name,
 		Species:     dinosaur.Species.String(),
 		EatingHabit: dinosaur.EatingHabit.String(),
-	}
-
-	if dinosaur.CageId != uuid.Nil {
-		cage, err := s.db.GetCage(c, dinosaur.CageId)
-		if err != nil && err == sql.ErrNoRows {
-			msg := "no cage found on local db"
-			s.logger.Error().Err(err).Msg(msg)
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
-			return
-		}
-		if err != nil {
-			msg := "failed to retrieve cage from local db"
-			s.logger.Error().Err(err).Msg(msg)
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
-			return
-		}
-		dinoResponse.CageId = cage.ID
-		dinoResponse.CageName = cage.Name.String
-	}
-
-	c.IndentedJSON(http.StatusOK, dinoResponse)
+	})
 }
 
 func (s *JurassicCageService) GetAllDinosaurs(c *gin.Context) {
@@ -373,15 +357,6 @@ func (s *JurassicCageService) AddDinosaurToCage(c *gin.Context) {
 	err = s.DbAddDinosaurToCage(c, cageUuid, dinosaur)
 	if err != nil {
 		msg := fmt.Sprintf("failed to add dinosaur %s to cage %s", dinosaur.Name, cage.Name)
-		s.logger.Error().Err(err).Msg(msg)
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
-		return
-	}
-
-	// Get dino count again
-	dinoCount, err = s.DbGetCageDinosaurCount(c, cageUuid)
-	if err != nil {
-		msg := fmt.Sprintf("error retrieving dino count for cage %s", cage.ID.String())
 		s.logger.Error().Err(err).Msg(msg)
 		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": msg})
 		return

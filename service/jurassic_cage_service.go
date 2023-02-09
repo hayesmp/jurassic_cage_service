@@ -61,6 +61,8 @@ func (s *JurassicCageService) initDb() {
 
 	s.logger.Info().Msg("db initialized")
 }
+
+// Gin Router
 func (s *JurassicCageService) SetupRouter() *gin.Engine {
 	r := gin.Default()
 	r.POST("/cage", s.CreateCage)
